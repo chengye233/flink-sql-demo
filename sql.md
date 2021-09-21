@@ -128,13 +128,13 @@ GROUP BY window_start, window_end;
 
 ### 2.2.3 Kibana统计
 
-新建一个index pattern
+新建一个index pattern  
 ![img_5.png](img_5.png)
 
-看下索引的数据,已经有了几条
+看下索引的数据,已经有了几条  
 ![img_6.png](img_6.png)
 
-绘图
+绘图：  
 ![img_7.png](img_7.png)
 
 ![img_8.png](img_8.png)
@@ -184,7 +184,7 @@ GROUP BY date_str;
 ```
 
 如果单独执行这条语句，只会输出一条结果(因为只有1天的数据吗group by后就是一条了)  
-但是Kafka的消息是一点一点写入的，所以会看到`MAX(time_str), COUNT(DISTINCT user_id) as uv`不断变化的样子  
+但是Kafka的消息是一点一点写入的，所以会看到`MAX(time_str), COUNT(DISTINCT user_id) as uv`不断变化的样子(GROUP BY会产生upsert流)  
 而ES的主键是日期和时间所以会不断的得加(更新)
 
 ```sql
@@ -200,6 +200,22 @@ GROUP BY date_str;
 ![img_11.png](img_11.png)
 
 ![img_12.png](img_12.png)
+
+另一种写法(只用CUMULATE window进行不断累加的统计):
+指定窗口的步长和大小，对比滑动窗口是每次向前滑动而累计窗口则是向前延伸
+
+![img_16.png](img_16.png)
+
+```sql
+INSERT INTO cumulative_uv
+SELECT DATE_FORMAT(ts, 'yyyy-MM-dd') as date_str,
+       DATE_FORMAT(ts, 'HH:mm')      as time_str,
+       COUNT(DISTINCT user_id)       as uv
+FROM Table(
+        CUMULATE(Table user_behavior, DESCRIPTOR(ts), INTERVAL '10' MINUTES, INTERVAL '1' DAY))
+    )
+GROUP BY window_start, window_end
+```
 
 ### 2.3.3 绘图
 
